@@ -110,6 +110,37 @@ func TestRest(t *testing.T) {
 	}
 }
 
+func TestDefaultContentTypeWithBody(t *testing.T) {
+	host := "http://localhost"
+	method := Get
+	request := Request{
+		Method:  method,
+		BaseURL: host,
+		Body:    []byte("Hello World"),
+	}
+	response, _ := BuildRequestObject(request)
+	if response.Header.Get("Content-Type") != "application/json" {
+		t.Error("Content-Type not set to the correct default value when a body is set.")
+	}
+}
+
+func TestCustomContentType(t *testing.T) {
+	host := "http://localhost"
+	Headers := make(map[string]string)
+	Headers["Content-Type"] = "custom"
+	method := Get
+	request := Request{
+		Method:  method,
+		BaseURL: host,
+		Headers: Headers,
+		Body:    []byte("Hello World"),
+	}
+	response, _ := BuildRequestObject(request)
+	if response.Header.Get("Content-Type") != "custom" {
+		t.Error("Content-Type not modified correctly")
+	}
+}
+
 func TestCustomHTTPClient(t *testing.T) {
 	fakeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * 20)
@@ -131,5 +162,29 @@ func TestCustomHTTPClient(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "Client.Timeout exceeded while awaiting headers") == false {
 		t.Error("We did not receive the Timeout error")
+	}
+}
+
+func TestRestError(t *testing.T) {
+	headers := make(map[string][]string)
+	headers["Content-Type"] = []string{"application/json"}
+
+	response := &Response{
+		StatusCode: 400,
+		Body:       `{"result": "failure"}`,
+		Headers:    headers,
+	}
+
+	restErr := &RestError{Response: response}
+
+	var err error
+	err = restErr
+
+	if _, ok := err.(*RestError); !ok {
+		t.Error("RestError does not satisfiy the error interface.")
+	}
+
+	if err.Error() != `{"result": "failure"}` {
+		t.Error("Invalid error message.")
 	}
 }
